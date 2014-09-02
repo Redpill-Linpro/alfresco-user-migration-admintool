@@ -1,0 +1,9 @@
+<webscript>
+   <shortname>Admin Console Replace User web script</shortname>
+   <description>Admin Console Replace User web script</description>
+   <family>Redpill Linpro</family>
+   <url template="/rpl/admin/replace-user"/>
+   <format default="json">extension</format>
+   <authentication>admin</authentication>
+   <transaction>required</transaction>
+</webscript>

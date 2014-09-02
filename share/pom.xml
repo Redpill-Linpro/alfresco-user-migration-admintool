@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.redpill_linpro.alfresco</groupId>
+    <artifactId>alfresco-user-migration-admintool</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>alfresco-user-migration-admintool-share</artifactId>
+  <packaging>amp</packaging>
+  <name>Alfresco Share AMP Module</name>
+
+  <properties>
+    <module.id>replace-user-share</module.id>
+    <alfresco.client.war>share</alfresco.client.war>
+    <tomcat.home>${tomcat.share.home}</tomcat.home>
+    <tomcat.port>${tomcat.share.port}</tomcat.port>
+  </properties>
+
+</project>
