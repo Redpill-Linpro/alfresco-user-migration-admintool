@@ -11,6 +11,7 @@
     <property name="behaviourFilter" ref="policyBehaviourFilter" />
     <property name="authenticationService" ref="AuthenticationService" />
     <property name="permissionService" ref="PermissionService" />
+    <property name="authorityService" ref="AuthorityService" />
   </bean>
 
 </beans>

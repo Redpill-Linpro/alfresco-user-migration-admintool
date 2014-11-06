@@ -30,6 +30,8 @@
         <input type="checkbox" id="${el}-transferSiteMemberships" name="transferSiteMemberships" /><br />
         <label for="transferFileOwnerships">${msg("label.transferFileOwnerships")}</label>
         <input type="checkbox" id="${el}-transferFileOwnerships" name="transferFileOwnerships" /><br />
+        <label for="transferGlobalGroups">${msg("label.transferGlobalGroups")}</label>
+        <input type="checkbox" id="${el}-transferGlobalGroups" name="transferGlobalGroups" /><br />
         <div id="${el}-submit-button-container">
           <button id="${el}-submit-button">${msg("label.submit")}</button>
         </div>

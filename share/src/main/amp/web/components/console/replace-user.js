@@ -1,5 +1,5 @@
-if (typeof MaxLab == "undefined" || !MaxLab) {
-	var MaxLab = {};
+if (typeof RPL == "undefined" || !RPL) {
+	var RPL = {};
 }
 
 (function()
@@ -22,13 +22,13 @@ if (typeof MaxLab == "undefined" || !MaxLab) {
   * ReplaceUser constructor.
   *
   * @param {String} htmlId The HTML id of the parent element
-  * @return {MaxLab.ReplaceUser} The new ReplaceUser instance
+  * @return {RPL.ReplaceUser} The new ReplaceUser instance
   * @constructor
   */
-   MaxLab.ReplaceUser = function(htmlId)
+   RPL.ReplaceUser = function(htmlId)
    {
-    this.name = "MaxLab.ReplaceUser";
-    MaxLab.ReplaceUser.superclass.constructor.call(this, htmlId);
+    this.name = "RPL.ReplaceUser";
+    RPL.ReplaceUser.superclass.constructor.call(this, htmlId);
     
     /* Register this component */
     Alfresco.util.ComponentManager.register(this);
@@ -62,7 +62,7 @@ if (typeof MaxLab == "undefined" || !MaxLab) {
     return this;
    };
    
-   YAHOO.extend(MaxLab.ReplaceUser, Alfresco.ConsoleTool, 
+   YAHOO.extend(RPL.ReplaceUser, Alfresco.ConsoleTool, 
    {
     /**
      * Set multiple initialization options at once.
@@ -92,7 +92,7 @@ if (typeof MaxLab == "undefined" || !MaxLab) {
     onReady: function ReplaceUser_onReady()
     {
     // Call super-class onReady() method
-    MaxLab.ReplaceUser.superclass.onReady.call(this);     
+    RPL.ReplaceUser.superclass.onReady.call(this);     
 
     // Search button
     this.widgets.submitButton = Alfresco.util.createYUIButton(this, "submit-button", this.onSubmitClick);
@@ -101,6 +101,7 @@ if (typeof MaxLab == "undefined" || !MaxLab) {
     this.widgets.disableUsers = Dom.get(this.id + "-disableUsers");
     this.widgets.transferSiteMemberships = Dom.get(this.id + "-transferSiteMemberships");
     this.widgets.transferFileOwnerships = Dom.get(this.id + "-transferFileOwnerships");
+    this.widgets.transferGlobalGroups = Dom.get(this.id + "-transferGlobalGroups");
 
     },
 
@@ -119,13 +120,14 @@ if (typeof MaxLab == "undefined" || !MaxLab) {
         disableUsers: this.widgets.disableUsers.checked,
         transferSiteMemberships: this.widgets.transferSiteMemberships.checked,
         transferFileOwnerships: this.widgets.transferFileOwnerships.checked,
+        transferGlobalGroups: this.widgets.transferGlobalGroups.checked,
         test: true
       };
 
       var me = this;
 
       //Send test request
-      var serviceUrl = Alfresco.constants.PROXY_URI + "maxlab/admin/replace-user";
+      var serviceUrl = Alfresco.constants.PROXY_URI + "rpl/admin/replace-user";
       Alfresco.util.Ajax.jsonPost({
         url: serviceUrl,
         successCallback: 
@@ -163,9 +165,10 @@ if (typeof MaxLab == "undefined" || !MaxLab) {
                 disableUsers: me.widgets.disableUsers.checked,
                 transferSiteMemberships: me.widgets.transferSiteMemberships.checked,
                 transferFileOwnerships: me.widgets.transferFileOwnerships.checked,
+                transferGlobalGroups: me.widgets.transferGlobalGroups.checked,
                 test: false
               };
-              var serviceUrl = Alfresco.constants.PROXY_URI + "maxlab/admin/replace-user";
+              var serviceUrl = Alfresco.constants.PROXY_URI + "rpl/admin/replace-user";
               Alfresco.util.Ajax.jsonPost({
                 url: serviceUrl,
                 successCallback: 
@@ -287,7 +290,7 @@ if (typeof MaxLab == "undefined" || !MaxLab) {
      */
     _msg: function ConsoleNodeBrowser__msg(messageId)
     {
-     return Alfresco.util.message.call(this, messageId, "MaxLab.ReplaceUser", Array.prototype.slice.call(arguments).slice(1));
+     return Alfresco.util.message.call(this, messageId, "RPL.ReplaceUser", Array.prototype.slice.call(arguments).slice(1));
     }
     
    });

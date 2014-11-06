@@ -5,8 +5,10 @@ import java.io.Serializable;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.alfresco.error.AlfrescoRuntimeException;
 import org.alfresco.model.ContentModel;
@@ -19,6 +21,8 @@ import org.alfresco.service.cmr.repository.StoreRef;
 import org.alfresco.service.cmr.search.ResultSet;
 import org.alfresco.service.cmr.search.SearchParameters;
 import org.alfresco.service.cmr.search.SearchService;
+import org.alfresco.service.cmr.security.AuthorityService;
+import org.alfresco.service.cmr.security.AuthorityType;
 import org.alfresco.service.cmr.security.MutableAuthenticationService;
 import org.alfresco.service.cmr.security.OwnableService;
 import org.alfresco.service.cmr.security.PermissionService;
@@ -26,7 +30,6 @@ import org.alfresco.service.cmr.security.PersonService;
 import org.alfresco.service.cmr.site.SiteInfo;
 import org.alfresco.service.cmr.site.SiteService;
 import org.alfresco.service.namespace.NamespaceService;
-import org.alfresco.service.transaction.TransactionService;
 import org.apache.log4j.Logger;
 import org.redpill_linpro.alfresco.repo.bean.AdminReplaceUserRequestBean;
 import org.springframework.beans.factory.InitializingBean;
@@ -45,6 +48,8 @@ import com.google.gson.reflect.TypeToken;
  * 
  * @author Marcus Svensson Redpill Linpro AB
  *         <marcus.svensson@redpill-linpro.com>
+ *         
+ * @author Erik Billerby Redpill Linpro AB
  * 
  */
 public class AdminReplaceUserWebScript extends DeclarativeWebScript implements InitializingBean {
@@ -58,6 +63,7 @@ public class AdminReplaceUserWebScript extends DeclarativeWebScript implements I
   private BehaviourFilter behaviourFilter;
   private MutableAuthenticationService authenticationService;
   private PermissionService permissionService;
+  private AuthorityService authorityService;
 
   protected static final String REGEX_VALIDATION_FORMAT = "(.+,.+)(\\n(.+,.+))*";
   protected static final String SOURCE_USERNAME = "sourceUsername";
@@ -69,6 +75,7 @@ public class AdminReplaceUserWebScript extends DeclarativeWebScript implements I
   protected static final String DISABLE_USER = "disableUser";
   protected static final String CHANGE_OWNERSHIP_COUNT = "changeOwnershipCount";
   protected static final String CHANGE_SITE_MEMBERSHIP_COUNT = "changeSiteMembershipCount";
+  protected static final String CHANGE_GLOBAL_GROUP_COUNT = "changeGlobalGroupCount";
   protected static final int MAX_RESULTS = 500;
 
   @Override
@@ -117,6 +124,11 @@ public class AdminReplaceUserWebScript extends DeclarativeWebScript implements I
     // Transfer site memberships
     if (requestData.getTransferSiteMemberships()) {
       transferMemberships(resultList, requestData.getTest());
+    }
+
+    // Transfer global groups
+    if (requestData.getTransferGlobalGroups()) {
+      transferGlobalGroupMemberships(resultList, requestData.getTest());
     }
 
     result.put("items", resultList);
@@ -324,6 +336,54 @@ public class AdminReplaceUserWebScript extends DeclarativeWebScript implements I
     }
     return userList;
   }
+  
+  /**
+   * Transfer global group memberships from one person to another. 
+   * If the source user was a member of a group, then
+   * the new user will just be a member of the group as well. 
+   * 
+   * @param userList
+   *          List of users
+   * @param test
+   *          If set to true no modification of data will be made, if set to
+   *          false file ownerships will be made
+   * @return
+   */
+  protected List<Map<String, Serializable>> transferGlobalGroupMemberships(List<Map<String, Serializable>> userList, Boolean test) {
+
+    for (Map<String, Serializable> user : userList) {
+      String sourceUsername = (String) user.get(SOURCE_USERNAME);
+      String targetUsername = (String) user.get(TARGET_USERNAME);
+
+      Set<String> authoritiesForUser = authorityService.getAuthoritiesForUser(sourceUsername);
+      Set<String> groups = authorityService.getAllAuthoritiesInZone(AuthorityService.ZONE_APP_DEFAULT, AuthorityType.GROUP);
+      
+      Set<String> intersection = new HashSet<String>();
+      // Since the transfer memberships function will take care of the site memberships, and those groups
+      // remove them from the set by getting the intersection of the two sets.
+      for (String group : groups){
+        if (authoritiesForUser.contains(group)){
+          intersection.add(group);
+        }
+      }
+      for (String authority : intersection){
+        
+        if (!test){
+          if (!(authorityService.getAuthoritiesForUser(targetUsername)).contains(authority)){
+            authorityService.addAuthority(authority, targetUsername);
+          }
+          
+          LOG.info("Adding " + targetUsername + " to group " + authority);
+          authorityService.removeAuthority(authority, sourceUsername);
+          LOG.info("Removing " + sourceUsername + " from group " + authority);
+        }
+      }
+      
+
+      user.put(CHANGE_GLOBAL_GROUP_COUNT, authoritiesForUser.size());
+    }
+    return userList;
+  }
 
   /**
    * Validate that the input list is valid
@@ -367,6 +427,10 @@ public class AdminReplaceUserWebScript extends DeclarativeWebScript implements I
   public void setPermissionService(PermissionService permissionService) {
     this.permissionService = permissionService;
   }
+  
+  public void setAuthorityService(AuthorityService authorityService) {
+    this.authorityService = authorityService;
+  }
 
   @Override
   public void afterPropertiesSet() throws Exception {
@@ -378,6 +442,7 @@ public class AdminReplaceUserWebScript extends DeclarativeWebScript implements I
     Assert.notNull(behaviourFilter);
     Assert.notNull(authenticationService);
     Assert.notNull(permissionService);
+    Assert.notNull(authorityService, "you have to provide an instance of AuthorityService");
   }
 
 }

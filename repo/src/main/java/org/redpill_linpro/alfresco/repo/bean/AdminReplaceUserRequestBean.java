@@ -8,6 +8,7 @@ public class AdminReplaceUserRequestBean implements Serializable {
   private Boolean disableUsers;
   private Boolean transferSiteMemberships;
   private Boolean transferFileOwnerships;
+  private Boolean transferGlobalGroups;
   private Boolean test;
 
   public String getContent() {
@@ -42,6 +43,13 @@ public class AdminReplaceUserRequestBean implements Serializable {
     this.transferFileOwnerships = transferFileOwnerships;
   }
 
+  public void setTransferGlobalGroups(Boolean transferGlobalGroups) {
+    this.transferGlobalGroups = transferGlobalGroups;
+  }
+  
+  public Boolean getTransferGlobalGroups() {
+    return transferGlobalGroups;
+  }
   public Boolean getTest() {
     return test;
   }
