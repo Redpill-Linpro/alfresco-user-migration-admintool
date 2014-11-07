@@ -5,7 +5,7 @@ This module is sponsored by Redpill Linpro AB - http://www.redpill-linpro.com.
 
 Description
 -----------
-This Share Admin console module is used when there is a need to change the username of one or more Alfresco users. It transfers node ownerships, site and group memberships from one user to another. 
+This Share Admin console tool is used when there is a need to change the username of one or more Alfresco users. It transfers node ownerships, site and group memberships from one user to another. The original user stays but could be marked as disabled by preference.
 
 Building & Installation
 ------------
