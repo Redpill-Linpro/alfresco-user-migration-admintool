@@ -5,33 +5,17 @@ import java.io.Serializable;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.alfresco.error.AlfrescoRuntimeException;
 import org.alfresco.model.ContentModel;
-import org.alfresco.repo.policy.BehaviourFilter;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.cmr.repository.NodeService;
-import org.alfresco.service.cmr.repository.Path;
-import org.alfresco.service.cmr.repository.Path.Element;
-import org.alfresco.service.cmr.repository.StoreRef;
-import org.alfresco.service.cmr.search.ResultSet;
-import org.alfresco.service.cmr.search.SearchParameters;
-import org.alfresco.service.cmr.search.SearchService;
-import org.alfresco.service.cmr.security.AuthorityService;
-import org.alfresco.service.cmr.security.AuthorityType;
-import org.alfresco.service.cmr.security.MutableAuthenticationService;
-import org.alfresco.service.cmr.security.OwnableService;
-import org.alfresco.service.cmr.security.PermissionService;
 import org.alfresco.service.cmr.security.PersonService;
-import org.alfresco.service.cmr.site.SiteInfo;
-import org.alfresco.service.cmr.site.SiteService;
-import org.alfresco.service.namespace.NamespaceService;
 import org.apache.log4j.Logger;
 import org.redpill_linpro.alfresco.repo.bean.AdminReplaceUserRequestBean;
+import org.redpill_linpro.alfresco.repo.service.ReplaceUserService;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.extensions.webscripts.Cache;
 import org.springframework.extensions.webscripts.DeclarativeWebScript;
@@ -57,13 +41,7 @@ public class AdminReplaceUserWebScript extends DeclarativeWebScript implements I
 
   private PersonService personService;
   private NodeService nodeService;
-  private SearchService searchService;
-  private SiteService siteService;
-  private OwnableService ownableService;
-  private BehaviourFilter behaviourFilter;
-  private MutableAuthenticationService authenticationService;
-  private PermissionService permissionService;
-  private AuthorityService authorityService;
+  private ReplaceUserService replaceUserService;
 
   protected static final String REGEX_VALIDATION_FORMAT = "(.+,.+)(\\n(.+,.+))*";
   protected static final String SOURCE_USERNAME = "sourceUsername";
@@ -111,25 +89,7 @@ public class AdminReplaceUserWebScript extends DeclarativeWebScript implements I
 
     List<Map<String, Serializable>> resultList = getUserList(requestData);
 
-    // Disable users
-    if (requestData.getDisableUsers()) {
-      disableUsers(resultList, requestData.getTest());
-    }
-
-    // Transfer file ownerships
-    if (requestData.getTransferFileOwnerships()) {
-      transferOwnership(resultList, requestData.getTest());
-    }
-
-    // Transfer site memberships
-    if (requestData.getTransferSiteMemberships()) {
-      transferMemberships(resultList, requestData.getTest());
-    }
-
-    // Transfer global groups
-    if (requestData.getTransferGlobalGroups()) {
-      transferGlobalGroupMemberships(resultList, requestData.getTest());
-    }
+    resultList = replaceUserService.processUserList(resultList, requestData);
 
     result.put("items", resultList);
 
@@ -139,22 +99,7 @@ public class AdminReplaceUserWebScript extends DeclarativeWebScript implements I
     return result;
   }
 
-  private List<Map<String, Serializable>> disableUsers(List<Map<String, Serializable>> userList, Boolean test) {
-    for (Map<String, Serializable> user : userList) {
-      String sourceUsername = (String) user.get(SOURCE_USERNAME);
-      if (personService.isEnabled(sourceUsername)) {
-        user.put(DISABLE_USER, "1");
-        if (!test) {
-          LOG.info("Disabling user " + sourceUsername);
-          authenticationService.setAuthenticationEnabled(sourceUsername, false);
-        }
-      } else {
-        LOG.info("User " + sourceUsername + " already disabled");
-      }
-    }
-    return userList;
 
-  }
 
   /**
    * Get a list of users based on the request data
@@ -213,177 +158,6 @@ public class AdminReplaceUserWebScript extends DeclarativeWebScript implements I
     return resultList;
   }
 
-  /**
-   * Transfer ownership of files from one user to another
-   * 
-   * @param userList
-   *          The list of users
-   * @param test
-   *          If set to true no modification of data will be made, if set to
-   *          false file ownerships will be made
-   * @return
-   */
-  protected List<Map<String, Serializable>> transferOwnership(List<Map<String, Serializable>> userList, Boolean test) {
-    // Disable behaviours for this script
-    behaviourFilter.disableBehaviour();
-    for (Map<String, Serializable> user : userList) {
-      int skip = 0;
-      String sourceUser = (String) user.get(SOURCE_USERNAME);
-      String targetUser = (String) user.get(TARGET_USERNAME);
-      // String query =
-      // "(TYPE:\"cm:content\" OR TYPE:\"cm:folder\") AND PATH:\"/app:company_home//*\" AND (cm:owner:"
-      // + sourceUser +" OR cm:creator:" + sourceUser +") ";
-
-      String query = "(TYPE:\"cm:content\" OR TYPE:\"cm:folder\") AND PATH:\"/app:company_home//*\" AND (cm:owner:\"" + sourceUser + "\" OR (ISNULL:\"cm:owner\" AND cm:creator:\"" + sourceUser + "\"))";
-
-      SearchParameters searchParameters = new SearchParameters();
-      searchParameters.setQuery(query);
-      searchParameters.setLanguage(SearchService.LANGUAGE_FTS_ALFRESCO);
-      searchParameters.setMaxItems(MAX_RESULTS);
-      searchParameters.setSkipCount(skip);
-      searchParameters.addStore(StoreRef.STORE_REF_WORKSPACE_SPACESSTORE);
-
-      ResultSet result = searchService.query(searchParameters);
-      List<NodeRef> resultNodeRefs = result.getNodeRefs();
-      List<NodeRef> allNodeRefs = new ArrayList<NodeRef>();
-      allNodeRefs.addAll(resultNodeRefs);
-      LOG.debug("Adding first " + resultNodeRefs.size() + " objects to list (Limit is " + MAX_RESULTS + ")");
-      while (resultNodeRefs.size() == MAX_RESULTS) {
-        skip = skip + MAX_RESULTS;
-        searchParameters.setSkipCount(skip);
-        result = searchService.query(searchParameters);
-        resultNodeRefs = result.getNodeRefs();
-        LOG.debug("Adding another " + resultNodeRefs.size() + " objects to list");
-        allNodeRefs.addAll(resultNodeRefs);
-
-        if (skip >= 50000) {
-          throw new AlfrescoRuntimeException("Something is wrong, too many files!");
-        }
-      }
-
-      LOG.info("Actual number of objects is  " + allNodeRefs.size() + " for user " + sourceUser);
-      List<NodeRef> filteredNodeRefs = new ArrayList<NodeRef>();
-      for (NodeRef nodeRef : allNodeRefs) {
-        Path path = nodeService.getPath(nodeRef);
-
-        if (path.size() > 4) {
-          Element element = path.get(4);
-          Element element2 = path.get(3);
-          String matchingName = "{" + NamespaceService.CONTENT_MODEL_1_0_URI + "}surf-config";
-          if (matchingName.equalsIgnoreCase(element.getElementString()) || matchingName.equalsIgnoreCase(element2.getElementString())) {
-            LOG.trace("Skipping surf-config for " + nodeRef.toString());
-            continue;
-          }
-        }
-        if (LOG.isDebugEnabled()) {
-          Path subPath = path.subPath(2, path.size() - 1);
-          String displayPath = path.toDisplayPath(nodeService, permissionService) + "/" + nodeService.getProperty(nodeRef, ContentModel.PROP_NAME);
-          LOG.debug("Path: " + displayPath);
-        }
-        filteredNodeRefs.add(nodeRef);
-      }
-      if (!test) {
-        LOG.info("Changing ownership on " + filteredNodeRefs.size() + " objects: " + sourceUser + "->" + targetUser);
-        for (NodeRef nodeRef : filteredNodeRefs) {
-          ownableService.setOwner(nodeRef, targetUser);
-        }
-      }
-
-      user.put(CHANGE_OWNERSHIP_COUNT, filteredNodeRefs.size());
-
-    }
-    behaviourFilter.enableBehaviour();
-    return userList;
-  }
-
-  /**
-   * Transfer site memberships from one person to another Does not take group
-   * membership into account. If the source user was a member of a group, then
-   * the new user will just be a member of the site. This will overwrite any
-   * previous role of a user in the site.
-   * 
-   * @param userList
-   *          List of users
-   * @param test
-   *          If set to true no modification of data will be made, if set to
-   *          false file ownerships will be made
-   * @return
-   */
-  protected List<Map<String, Serializable>> transferMemberships(List<Map<String, Serializable>> userList, Boolean test) {
-
-    for (Map<String, Serializable> user : userList) {
-      String sourceUsername = (String) user.get(SOURCE_USERNAME);
-      String targetUsername = (String) user.get(TARGET_USERNAME);
-
-      List<SiteInfo> listSites = siteService.listSites(sourceUsername);
-      LOG.info("Number of sites is: " + listSites.size());
-
-      for (SiteInfo site : listSites) {
-        String membersRole = siteService.getMembersRole(site.getShortName(), sourceUsername);
-        if (!test) {
-          String targetMemberRole = siteService.getMembersRole(site.getShortName(), targetUsername);
-          // Do not replace memberships, just add for new ones
-          if (targetMemberRole == null) {
-            siteService.setMembership(site.getShortName(), targetUsername, membersRole);
-            LOG.info("Adding membership of " + targetUsername + " in site " + site.getShortName() + " with role " + membersRole);
-          }
-          siteService.removeMembership(site.getShortName(), sourceUsername);
-          LOG.info("Removing membership of " + sourceUsername + " in site " + site.getShortName());
-        }
-      }
-
-      user.put(CHANGE_SITE_MEMBERSHIP_COUNT, listSites.size());
-    }
-    return userList;
-  }
-  
-  /**
-   * Transfer global group memberships from one person to another. 
-   * If the source user was a member of a group, then
-   * the new user will just be a member of the group as well. 
-   * 
-   * @param userList
-   *          List of users
-   * @param test
-   *          If set to true no modification of data will be made, if set to
-   *          false file ownerships will be made
-   * @return
-   */
-  protected List<Map<String, Serializable>> transferGlobalGroupMemberships(List<Map<String, Serializable>> userList, Boolean test) {
-
-    for (Map<String, Serializable> user : userList) {
-      String sourceUsername = (String) user.get(SOURCE_USERNAME);
-      String targetUsername = (String) user.get(TARGET_USERNAME);
-
-      Set<String> authoritiesForUser = authorityService.getAuthoritiesForUser(sourceUsername);
-      Set<String> groups = authorityService.getAllAuthoritiesInZone(AuthorityService.ZONE_APP_DEFAULT, AuthorityType.GROUP);
-      
-      Set<String> intersection = new HashSet<String>();
-      // Since the transfer memberships function will take care of the site memberships, and those groups
-      // remove them from the set by getting the intersection of the two sets.
-      for (String group : groups){
-        if (authoritiesForUser.contains(group)){
-          intersection.add(group);
-        }
-      }
-      for (String authority : intersection){
-        
-        if (!test){
-          if (!(authorityService.getAuthoritiesForUser(targetUsername)).contains(authority)){
-            authorityService.addAuthority(authority, targetUsername);
-          }
-          
-          LOG.info("Adding " + targetUsername + " to group " + authority);
-          authorityService.removeAuthority(authority, sourceUsername);
-          LOG.info("Removing " + sourceUsername + " from group " + authority);
-        }
-      }
-      
-
-      user.put(CHANGE_GLOBAL_GROUP_COUNT, authoritiesForUser.size());
-    }
-    return userList;
-  }
 
   /**
    * Validate that the input list is valid
@@ -404,45 +178,16 @@ public class AdminReplaceUserWebScript extends DeclarativeWebScript implements I
     this.nodeService = nodeService;
   }
 
-  public void setSearchService(SearchService searchService) {
-    this.searchService = searchService;
-  }
-
-  public void setSiteService(SiteService siteService) {
-    this.siteService = siteService;
-  }
-
-  public void setOwnableService(OwnableService ownableService) {
-    this.ownableService = ownableService;
-  }
-
-  public void setBehaviourFilter(BehaviourFilter behaviourFilter) {
-    this.behaviourFilter = behaviourFilter;
-  }
-
-  public void setAuthenticationService(MutableAuthenticationService authenticationService) {
-    this.authenticationService = authenticationService;
-  }
-
-  public void setPermissionService(PermissionService permissionService) {
-    this.permissionService = permissionService;
+  public void setReplaceUserService(ReplaceUserService replaceUserService) {
+    this.replaceUserService = replaceUserService;
   }
   
-  public void setAuthorityService(AuthorityService authorityService) {
-    this.authorityService = authorityService;
-  }
-
   @Override
   public void afterPropertiesSet() throws Exception {
     Assert.notNull(personService);
     Assert.notNull(nodeService);
-    Assert.notNull(siteService);
-    Assert.notNull(searchService);
-    Assert.notNull(ownableService);
-    Assert.notNull(behaviourFilter);
-    Assert.notNull(authenticationService);
-    Assert.notNull(permissionService);
-    Assert.notNull(authorityService, "you have to provide an instance of AuthorityService");
+    Assert.notNull(replaceUserService);
+    
   }
 
 }
