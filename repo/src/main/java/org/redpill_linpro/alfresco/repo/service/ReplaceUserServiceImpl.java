@@ -10,6 +10,10 @@ import java.util.Set;
 import org.alfresco.error.AlfrescoRuntimeException;
 import org.alfresco.model.ContentModel;
 import org.alfresco.repo.policy.BehaviourFilter;
+import org.alfresco.service.cmr.model.FileExistsException;
+import org.alfresco.service.cmr.model.FileFolderService;
+import org.alfresco.service.cmr.model.FileInfo;
+import org.alfresco.service.cmr.model.FileNotFoundException;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.cmr.repository.NodeService;
 import org.alfresco.service.cmr.repository.Path;
@@ -36,15 +40,16 @@ public class ReplaceUserServiceImpl implements ReplaceUserService, InitializingB
 
   private static final Logger LOG = Logger.getLogger(ReplaceUserServiceImpl.class);
 
-  private PersonService personService;
-  private NodeService nodeService;
-  private SearchService searchService;
-  private SiteService siteService;
-  private OwnableService ownableService;
-  private BehaviourFilter behaviourFilter;
-  private MutableAuthenticationService authenticationService;
-  private PermissionService permissionService;
-  private AuthorityService authorityService;
+  protected PersonService personService;
+  protected NodeService nodeService;
+  protected SearchService searchService;
+  protected SiteService siteService;
+  protected OwnableService ownableService;
+  protected BehaviourFilter behaviourFilter;
+  protected MutableAuthenticationService authenticationService;
+  protected PermissionService permissionService;
+  protected AuthorityService authorityService;
+  protected FileFolderService fileFolderService;
 
   protected static final String REGEX_VALIDATION_FORMAT = "(.+,.+)(\\n(.+,.+))*";
   protected static final String SOURCE_USERNAME = "sourceUsername";
@@ -109,14 +114,19 @@ public class ReplaceUserServiceImpl implements ReplaceUserService, InitializingB
    *          If set to true no modification of data will be made, if set to
    *          false file ownerships will be made
    * @return
+   * @throws FileNotFoundException 
+   * @throws FileExistsException 
    */
-  protected List<Map<String, Serializable>> transferOwnership(List<Map<String, Serializable>> userList, Boolean test) {
+  protected List<Map<String, Serializable>> transferOwnership(List<Map<String, Serializable>> userList, Boolean test) throws FileExistsException {
     // Disable behaviours for this script
     behaviourFilter.disableBehaviour();
     for (Map<String, Serializable> user : userList) {
       int skip = 0;
       String sourceUser = (String) user.get(SOURCE_USERNAME);
+      NodeRef sourceUserNodeRef = personService.getPerson(sourceUser);
       String targetUser = (String) user.get(TARGET_USERNAME);
+      NodeRef targetUserNodeRef = personService.getPerson(targetUser);
+      
       // String query =
       // "(TYPE:\"cm:content\" OR TYPE:\"cm:folder\") AND PATH:\"/app:company_home//*\" AND (cm:owner:"
       // + sourceUser +" OR cm:creator:" + sourceUser +") ";
@@ -168,6 +178,19 @@ public class ReplaceUserServiceImpl implements ReplaceUserService, InitializingB
         }
         filteredNodeRefs.add(nodeRef);
       }
+      
+      // Move home folder content to the new user.
+      NodeRef sourceUserHomeFolder = (NodeRef)nodeService.getProperty(sourceUserNodeRef, ContentModel.PROP_HOMEFOLDER);
+      NodeRef targetUserHomeFolder = (NodeRef)nodeService.getProperty(targetUserNodeRef, ContentModel.PROP_HOMEFOLDER);
+      List<FileInfo> sourceUserHomeFolderContent = fileFolderService.list(sourceUserHomeFolder);
+      for (FileInfo node : sourceUserHomeFolderContent){
+        try {
+          fileFolderService.move(node.getNodeRef(), targetUserHomeFolder, null);
+        } catch (FileNotFoundException e) {
+          LOG.warn("Could not find node to move", e);
+        }
+      }
+
       if (!test) {
         LOG.info("Changing ownership on " + filteredNodeRefs.size() + " objects: " + sourceUser + "->" + targetUser);
         for (NodeRef nodeRef : filteredNodeRefs) {
@@ -298,17 +321,21 @@ public class ReplaceUserServiceImpl implements ReplaceUserService, InitializingB
   public void setAuthorityService(AuthorityService authorityService) {
     this.authorityService = authorityService;
   }
+  public void setFileFolderService(FileFolderService fileFolderService) {
+    this.fileFolderService = fileFolderService;
+  }
   @Override
   public void afterPropertiesSet() throws Exception {
-    Assert.notNull(personService);
-    Assert.notNull(nodeService);
-    Assert.notNull(siteService);
-    Assert.notNull(searchService);
-    Assert.notNull(ownableService);
-    Assert.notNull(behaviourFilter);
-    Assert.notNull(authenticationService);
-    Assert.notNull(permissionService);
+    Assert.notNull(personService, "you have to provide an instance of PersonService");
+    Assert.notNull(nodeService, "you have to provide an instance of NodeService");
+    Assert.notNull(siteService, "you have to provide an instance of SiteService");
+    Assert.notNull(searchService, "you have to provide an instance of SearchService");
+    Assert.notNull(ownableService, "you have to provide an instance of OwnableService");
+    Assert.notNull(behaviourFilter, "you have to provide an instance of BehaviourFilter");
+    Assert.notNull(authenticationService, "you have to provide an instance of MutableAuthenticationService");
+    Assert.notNull(permissionService, "you have to provide an instance of PermissionService");
     Assert.notNull(authorityService, "you have to provide an instance of AuthorityService");
+    Assert.notNull(fileFolderService, "you have to provide an instance of FileFolderService");
   }
 
 

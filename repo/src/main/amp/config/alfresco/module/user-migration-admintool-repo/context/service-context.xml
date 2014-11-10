@@ -11,7 +11,8 @@
     <property name="behaviourFilter" ref="policyBehaviourFilter" />
     <property name="authenticationService" ref="AuthenticationService" />
     <property name="permissionService" ref="PermissionService" />
-    <property name="authorityService" ref="AuthorityService" />  
+    <property name="authorityService" ref="AuthorityService" />
+    <property name="fileFolderService" ref="FileFolderService" />    
   </bean>
   
   <bean id="webscript.org.redpill_linpro.alfresco.repo.console.replace-user.post" class="org.redpill_linpro.alfresco.repo.webscripts.AdminReplaceUserWebScript" parent="webscript">
