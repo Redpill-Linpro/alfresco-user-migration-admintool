@@ -11,15 +11,10 @@
   </parent>
 
   <artifactId>alfresco-user-migration-admintool-repo</artifactId>
-  <packaging>amp</packaging>
   <name>Alfresco Repository AMP Module</name>
 
   <properties>
     <module.id>user-migration-admintool-repo</module.id>
-    <!-- This property allow to switch Repo AMP vs Share AMP. Set alfresco.client.war=share to run this AMP against Share -->
-    <alfresco.client.war>alfresco</alfresco.client.war>
-    <tomcat.home>${tomcat.repo.home}</tomcat.home>
-    <tomcat.port>${tomcat.repo.port}</tomcat.port>
   </properties>
 
   <dependencies>
@@ -33,5 +28,86 @@
       <version>2.2.4</version>
     </dependency>
   </dependencies>
+ <build>
+    <finalName>${project.artifactId}-${project.version}</finalName>
+
+    <resources>
+      <resource>
+        <directory>src/main/config</directory>
+        <includes>
+          <include>**/*.xml</include>
+          <include>**/*.ftl</include>
+          <include>**/*.js</include>
+        </includes>
+      </resource>
+    </resources>
+
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>1.6</source>
+          <target>1.6</target>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>2.2.1</version>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>2.9.1</version>
+        <executions>
+          <execution>
+            <id>attach-javadocs</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+      
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <includes>
+            <include>**/*.class</include>
+            <include>**/*.xml</include>
+            <include>**/*.ftl</include>
+            <include>**/*.js</include>
+          </includes>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <configuration>
+          <descriptors>
+            <descriptor>src/assembly/dist.xml</descriptor>
+          </descriptors>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 
 </project>
