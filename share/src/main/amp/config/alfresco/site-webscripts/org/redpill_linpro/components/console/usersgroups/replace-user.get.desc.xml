@@ -1,0 +1,6 @@
+<webscript>
+  <shortname>Admin Console Replace User</shortname>
+  <description>Admin Console - replace a user with another</description>
+  <url>/components/console/replace-user</url>
+  <family>admin-console</family>
+</webscript>
