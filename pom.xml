@@ -13,7 +13,7 @@
 
   <groupId>org.redpill_linpro.alfresco</groupId>
   <artifactId>alfresco-user-migration-admintool</artifactId>
-  <version>1.0.0-SNAPSHOT</version>
+  <version>1.0.0</version>
   <name>Quickstart of Alfresco Repository and Alfresco Share</name>
   <description>This All-in-One project allows to manage all the components involved in Alfresco development (repo and share) in one project</description>
   <packaging>pom</packaging>

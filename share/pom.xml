@@ -7,7 +7,7 @@
   <parent>
     <groupId>org.redpill_linpro.alfresco</groupId>
     <artifactId>alfresco-user-migration-admintool</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.0.0</version>
   </parent>
 
   <artifactId>alfresco-user-migration-admintool-share</artifactId>
