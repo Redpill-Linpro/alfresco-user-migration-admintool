@@ -259,6 +259,7 @@ if (typeof RPL == "undefined" || !RPL) {
       html += "<th>"+this.msg("label.table.disableUsersCount")+"</th>\n";
       html += "<th>"+this.msg("label.table.changeOwnershipCount")+"</th>\n";
       html += "<th>"+this.msg("label.table.changeSiteMembershipCount")+"</th>\n";
+      html += "<th>"+this.msg("label.table.changeGlobalGroupMembershipCount")+"</th>\n";
       html += "</tr>\n";
       for (var i=0; i<records.length; i++) {
         var record = records[i];
@@ -275,6 +276,7 @@ if (typeof RPL == "undefined" || !RPL) {
         html += "<td>"+((record.disableUser==undefined || record.disableUser==null)?this.msg("label.no"):this.msg("label.yes"))+"</td>\n";
         html += "<td>"+((record.changeOwnershipCount==undefined || record.changeOwnershipCount==null)?0:record.changeOwnershipCount)+"</td>\n";
         html += "<td>"+((record.changeSiteMembershipCount==undefined || record.changeSiteMembershipCount==null)?0:record.changeSiteMembershipCount)+"</td>\n";
+        html += "<td>"+((record.changeGlobalGroupCount==undefined || record.changeGlobalGroupCount==null)?0:record.changeGlobalGroupCount)+"</td>\n";
         html += "</tr>\n";
       }
       html += "</table>\n";
