@@ -63,7 +63,7 @@ public class ReplaceUserServiceImpl implements ReplaceUserService, InitializingB
   protected static final String CHANGE_SITE_MEMBERSHIP_COUNT = "changeSiteMembershipCount";
   protected static final String CHANGE_GLOBAL_GROUP_COUNT = "changeGlobalGroupCount";
   protected static final int MAX_RESULTS = 500;
-  
+
   @Override
   public List<Map<String, Serializable>> processUserList(List<Map<String, Serializable>> resultList, AdminReplaceUserRequestBean replaceUserBean) {
     // Disable users
@@ -85,10 +85,11 @@ public class ReplaceUserServiceImpl implements ReplaceUserService, InitializingB
     if (replaceUserBean.getTransferGlobalGroups()) {
       transferGlobalGroupMemberships(resultList, replaceUserBean.getTest());
     }
-    
+
     return resultList;
 
-  }  
+  }
+
   private List<Map<String, Serializable>> disableUsers(List<Map<String, Serializable>> userList, Boolean test) {
     for (Map<String, Serializable> user : userList) {
       String sourceUsername = (String) user.get(SOURCE_USERNAME);
@@ -105,6 +106,7 @@ public class ReplaceUserServiceImpl implements ReplaceUserService, InitializingB
     return userList;
 
   }
+
   /**
    * Transfer ownership of files from one user to another
    * 
@@ -114,8 +116,8 @@ public class ReplaceUserServiceImpl implements ReplaceUserService, InitializingB
    *          If set to true no modification of data will be made, if set to
    *          false file ownerships will be made
    * @return
-   * @throws FileNotFoundException 
-   * @throws FileExistsException 
+   * @throws FileNotFoundException
+   * @throws FileExistsException
    */
   protected List<Map<String, Serializable>> transferOwnership(List<Map<String, Serializable>> userList, Boolean test) throws FileExistsException {
     // Disable behaviours for this script
@@ -126,12 +128,13 @@ public class ReplaceUserServiceImpl implements ReplaceUserService, InitializingB
       NodeRef sourceUserNodeRef = personService.getPerson(sourceUser);
       String targetUser = (String) user.get(TARGET_USERNAME);
       NodeRef targetUserNodeRef = personService.getPerson(targetUser);
-      
+
       // String query =
       // "(TYPE:\"cm:content\" OR TYPE:\"cm:folder\") AND PATH:\"/app:company_home//*\" AND (cm:owner:"
       // + sourceUser +" OR cm:creator:" + sourceUser +") ";
 
-      String query = "(TYPE:\"cm:content\" OR TYPE:\"cm:folder\") AND PATH:\"/app:company_home//*\" AND (cm:owner:\"" + sourceUser + "\" OR (ISNULL:\"cm:owner\" AND cm:creator:\"" + sourceUser + "\"))";
+      String query = "(TYPE:\"cm:content\" OR TYPE:\"cm:folder\") AND PATH:\"/app:company_home//*\" AND (cm:owner:\"" + sourceUser + "\" OR (ISNULL:\"cm:owner\" AND cm:creator:\"" + sourceUser
+          + "\"))";
 
       SearchParameters searchParameters = new SearchParameters();
       searchParameters.setQuery(query);
@@ -178,12 +181,12 @@ public class ReplaceUserServiceImpl implements ReplaceUserService, InitializingB
         }
         filteredNodeRefs.add(nodeRef);
       }
-      
+
       // Move home folder content to the new user.
-      NodeRef sourceUserHomeFolder = (NodeRef)nodeService.getProperty(sourceUserNodeRef, ContentModel.PROP_HOMEFOLDER);
-      NodeRef targetUserHomeFolder = (NodeRef)nodeService.getProperty(targetUserNodeRef, ContentModel.PROP_HOMEFOLDER);
+      NodeRef sourceUserHomeFolder = (NodeRef) nodeService.getProperty(sourceUserNodeRef, ContentModel.PROP_HOMEFOLDER);
+      NodeRef targetUserHomeFolder = (NodeRef) nodeService.getProperty(targetUserNodeRef, ContentModel.PROP_HOMEFOLDER);
       List<FileInfo> sourceUserHomeFolderContent = fileFolderService.list(sourceUserHomeFolder);
-      for (FileInfo node : sourceUserHomeFolderContent){
+      for (FileInfo node : sourceUserHomeFolderContent) {
         try {
           fileFolderService.move(node.getNodeRef(), targetUserHomeFolder, null);
         } catch (FileNotFoundException e) {
@@ -226,30 +229,68 @@ public class ReplaceUserServiceImpl implements ReplaceUserService, InitializingB
 
       List<SiteInfo> listSites = siteService.listSites(sourceUsername);
       LOG.info("Number of sites is: " + listSites.size());
-
+      Set<String> containingAuthorities = authorityService.getContainingAuthorities(AuthorityType.GROUP, sourceUsername, true);
+      LOG.info("Number of direct containing authorities: " + containingAuthorities.size());
+      // look up direct memberships only. Indirect should not be transferred
+      int counter = 0;
+      
+      
       for (SiteInfo site : listSites) {
         String membersRole = siteService.getMembersRole(site.getShortName(), sourceUsername);
-        if (!test) {
-          String targetMemberRole = siteService.getMembersRole(site.getShortName(), targetUsername);
-          // Do not replace memberships, just add for new ones
-          if (targetMemberRole == null) {
-            siteService.setMembership(site.getShortName(), targetUsername, membersRole);
-            LOG.info("Adding membership of " + targetUsername + " in site " + site.getShortName() + " with role " + membersRole);
+        if (membersRole!=null) {
+        String siteRoleGroup = siteService.getSiteRoleGroup(site.getShortName(), membersRole);
+        
+        if (containingAuthorities.contains(siteRoleGroup)) {
+          counter++;
+          if (!test) {
+            String targetMemberRole = siteService.getMembersRole(site.getShortName(), targetUsername);
+            // Do not replace memberships, just add for new ones
+            if (targetMemberRole == null) {
+              siteService.setMembership(site.getShortName(), targetUsername, membersRole);
+              LOG.info("Adding membership of " + targetUsername + " in site " + site.getShortName() + " with role " + membersRole);
+            }
+            siteService.removeMembership(site.getShortName(), sourceUsername);
+            LOG.info("Removing membership of " + sourceUsername + " in site " + site.getShortName());
           }
-          siteService.removeMembership(site.getShortName(), sourceUsername);
-          LOG.info("Removing membership of " + sourceUsername + " in site " + site.getShortName());
+        }
+        }
+
+      }
+      
+      Set<String> authoritiesForUser = authorityService.getContainingAuthorities(AuthorityType.GROUP, sourceUsername, true);
+      Set<String> groups = authorityService.getAllAuthoritiesInZone(AuthorityService.ZONE_APP_SHARE, AuthorityType.GROUP);
+
+      Set<String> intersection = new HashSet<String>();
+      // Since the transfer memberships function will take care of the site
+      // memberships, and those groups
+      // remove them from the set by getting the intersection of the two sets.
+      for (String group : groups) {
+        if (authoritiesForUser.contains(group)) {
+          intersection.add(group);
         }
       }
+      LOG.info("Found additional site groups: " + intersection.size());
+      for (String authority : intersection) {
 
-      user.put(CHANGE_SITE_MEMBERSHIP_COUNT, listSites.size());
+        if (!test) {
+          if (!(authorityService.getAuthoritiesForUser(targetUsername)).contains(authority)) {
+            authorityService.addAuthority(authority, targetUsername);
+          }
+
+          LOG.info("Adding " + targetUsername + " to site group " + authority);
+          authorityService.removeAuthority(authority, sourceUsername);
+          LOG.info("Removing " + sourceUsername + " from site group " + authority);
+        }
+      }
+      user.put(CHANGE_SITE_MEMBERSHIP_COUNT, counter);
     }
     return userList;
   }
-  
+
   /**
-   * Transfer global group memberships from one person to another. 
-   * If the source user was a member of a group, then
-   * the new user will just be a member of the group as well. 
+   * Transfer global group memberships from one person to another. If the source
+   * user was a member of a group, then the new user will just be a member of
+   * the group as well.
    * 
    * @param userList
    *          List of users
@@ -264,66 +305,76 @@ public class ReplaceUserServiceImpl implements ReplaceUserService, InitializingB
       String sourceUsername = (String) user.get(SOURCE_USERNAME);
       String targetUsername = (String) user.get(TARGET_USERNAME);
 
-      Set<String> authoritiesForUser = authorityService.getAuthoritiesForUser(sourceUsername);
+      Set<String> authoritiesForUser = authorityService.getContainingAuthorities(AuthorityType.GROUP, sourceUsername, true);
       Set<String> groups = authorityService.getAllAuthoritiesInZone(AuthorityService.ZONE_APP_DEFAULT, AuthorityType.GROUP);
-      
+
       Set<String> intersection = new HashSet<String>();
-      // Since the transfer memberships function will take care of the site memberships, and those groups
+      // Since the transfer memberships function will take care of the site
+      // memberships, and those groups
       // remove them from the set by getting the intersection of the two sets.
-      for (String group : groups){
-        if (authoritiesForUser.contains(group)){
+      for (String group : groups) {
+        if (authoritiesForUser.contains(group)) {
           intersection.add(group);
         }
       }
-      for (String authority : intersection){
-        
-        if (!test){
-          if (!(authorityService.getAuthoritiesForUser(targetUsername)).contains(authority)){
+      for (String authority : intersection) {
+
+        if (!test) {
+          if (!(authorityService.getAuthoritiesForUser(targetUsername)).contains(authority)) {
             authorityService.addAuthority(authority, targetUsername);
           }
-          
+
           LOG.info("Adding " + targetUsername + " to group " + authority);
           authorityService.removeAuthority(authority, sourceUsername);
           LOG.info("Removing " + sourceUsername + " from group " + authority);
         }
       }
-      
 
-      user.put(CHANGE_GLOBAL_GROUP_COUNT, authoritiesForUser.size());
+      user.put(CHANGE_GLOBAL_GROUP_COUNT, intersection.size());
     }
     return userList;
   }
- 
+
   public void setPersonService(PersonService personService) {
     this.personService = personService;
   }
+
   public void setNodeService(NodeService nodeService) {
     this.nodeService = nodeService;
   }
+
   public void setSearchService(SearchService searchService) {
     this.searchService = searchService;
   }
+
   public void setSiteService(SiteService siteService) {
     this.siteService = siteService;
   }
+
   public void setOwnableService(OwnableService ownableService) {
     this.ownableService = ownableService;
   }
+
   public void setBehaviourFilter(BehaviourFilter behaviourFilter) {
     this.behaviourFilter = behaviourFilter;
   }
+
   public void setAuthenticationService(MutableAuthenticationService authenticationService) {
     this.authenticationService = authenticationService;
   }
+
   public void setPermissionService(PermissionService permissionService) {
     this.permissionService = permissionService;
   }
+
   public void setAuthorityService(AuthorityService authorityService) {
     this.authorityService = authorityService;
   }
+
   public void setFileFolderService(FileFolderService fileFolderService) {
     this.fileFolderService = fileFolderService;
   }
+
   @Override
   public void afterPropertiesSet() throws Exception {
     Assert.notNull(personService, "you have to provide an instance of PersonService");
@@ -337,6 +388,5 @@ public class ReplaceUserServiceImpl implements ReplaceUserService, InitializingB
     Assert.notNull(authorityService, "you have to provide an instance of AuthorityService");
     Assert.notNull(fileFolderService, "you have to provide an instance of FileFolderService");
   }
-
 
 }
