@@ -11,14 +11,32 @@
   </parent>
 
   <artifactId>alfresco-user-migration-admintool-share</artifactId>
-  <packaging>amp</packaging>
-  <name>Alfresco Share AMP Module</name>
-
-  <properties>
-    <module.id>replace-user-share</module.id>
-    <alfresco.client.war>share</alfresco.client.war>
-    <tomcat.home>${tomcat.share.home}</tomcat.home>
-    <tomcat.port>${tomcat.share.port}</tomcat.port>
-  </properties>
-
+  <name>Alfresco user migration admin tool - Share JAR</name>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>net.alchim31.maven</groupId>
+        <artifactId>yuicompressor-maven-plugin</artifactId>
+        <version>1.5.1</version>
+        <executions>
+          <execution>
+            <id>minimize-javascript</id>
+            <goals>
+              <goal>compress</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <sourceDirectory>${project.basedir}/src/main/resources/META-INF</sourceDirectory>
+          <outputDirectory>${project.build.directory}/classes/META-INF</outputDirectory>
+          <force>true</force>
+          <statistics>false</statistics>
+          <jswarn>false</jswarn>
+          <encoding>UTF-8</encoding>
+          <preProcessAggregates>true</preProcessAggregates>
+          <excludeResources>true</excludeResources>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 </project>

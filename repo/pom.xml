@@ -11,7 +11,7 @@
   </parent>
 
   <artifactId>alfresco-user-migration-admintool-repo</artifactId>
-  <name>Alfresco Repository AMP Module</name>
+  <name>Alfresco user migration admin tool - Repository JAR</name>
 
 
   <dependencies>
